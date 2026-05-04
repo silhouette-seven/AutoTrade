@@ -20,6 +20,13 @@ def main():
     print("                AUTOTRADE PORTFOLIO STATUS".center(80))
     print_separator()
 
+    import os
+    from dotenv import load_dotenv
+    import finnhub
+
+    load_dotenv()
+    finnhub_client = finnhub.Client(api_key=os.environ.get('FINNHUB_API_KEY'))
+
     # 1. Fetch Cash Balance
     cash_balance = get_current_balance()
     
@@ -38,9 +45,17 @@ def main():
             qty = h["total_quantity"]
             avg_price = h["avg_price"]
             
-            # Get latest price to calculate P/L
-            latest_price_row = get_latest_price(stock)
-            current_price = latest_price_row["price"] if latest_price_row else avg_price
+            # Get latest real-time price from Finnhub
+            try:
+                quote = finnhub_client.quote(stock)
+                current_price = quote['c']
+                if current_price == 0: # Finnhub returns 0 if ticker is invalid/not found
+                    latest_price_row = get_latest_price(stock)
+                    current_price = latest_price_row["price"] if latest_price_row else avg_price
+            except Exception as e:
+                print(f"Warning: Failed to fetch live price for {stock} from Finnhub: {e}")
+                latest_price_row = get_latest_price(stock)
+                current_price = latest_price_row["price"] if latest_price_row else avg_price
             
             current_val = qty * current_price
             total_stock_value += current_val
